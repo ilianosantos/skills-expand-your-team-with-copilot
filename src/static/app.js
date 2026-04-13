@@ -568,6 +568,25 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         `
         }
+        <div class="share-container">
+          <button class="share-button" data-activity="${name}" aria-label="Share this activity">
+            <span>&#x1F4E4;</span> Share
+          </button>
+          <div class="share-dropdown hidden">
+            <a class="share-option share-whatsapp" data-activity="${name}" href="#" aria-label="Share on WhatsApp">
+              <span>&#x1F4AC;</span> WhatsApp
+            </a>
+            <a class="share-option share-twitter" data-activity="${name}" href="#" aria-label="Share on X (Twitter)">
+              <span>&#x1D54F;</span> X / Twitter
+            </a>
+            <a class="share-option share-facebook" data-activity="${name}" href="#" aria-label="Share on Facebook">
+              <span>&#x1F310;</span> Facebook
+            </a>
+            <a class="share-option share-copy" data-activity="${name}" href="#" aria-label="Copy link">
+              <span>&#x1F4CB;</span> Copy Link
+            </a>
+          </div>
+        </div>
       </div>
     `;
 
@@ -587,7 +606,69 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // Add share button handler
+    const shareButton = activityCard.querySelector(".share-button");
+    const shareDropdown = activityCard.querySelector(".share-dropdown");
+
+    shareButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const shareText = buildShareText(name, details);
+      if (navigator.share) {
+        navigator.share({ title: name, text: shareText, url: window.location.href }).catch((err) => {
+          if (err.name !== "AbortError") {
+            showMessage("Could not share. Try using the share options instead.", "error");
+          }
+        });
+      } else {
+        shareDropdown.classList.toggle("hidden");
+      }
+    });
+
+    // Close dropdown when clicking outside (use event delegation on the card to avoid per-card document listeners)
+    activityCard.addEventListener("click", (event) => {
+      if (!event.target.closest(".share-container")) {
+        shareDropdown.classList.add("hidden");
+      }
+    });
+
+    activityCard.querySelector(".share-whatsapp").addEventListener("click", (event) => {
+      event.preventDefault();
+      const text = buildShareText(name, details);
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+      shareDropdown.classList.add("hidden");
+    });
+
+    activityCard.querySelector(".share-twitter").addEventListener("click", (event) => {
+      event.preventDefault();
+      const text = buildShareText(name, details);
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+      shareDropdown.classList.add("hidden");
+    });
+
+    activityCard.querySelector(".share-facebook").addEventListener("click", (event) => {
+      event.preventDefault();
+      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, "_blank", "noopener");
+      shareDropdown.classList.add("hidden");
+    });
+
+    activityCard.querySelector(".share-copy").addEventListener("click", (event) => {
+      event.preventDefault();
+      const text = buildShareText(name, details);
+      navigator.clipboard.writeText(text).then(() => {
+        showMessage("Activity details copied to clipboard!", "success");
+      }).catch(() => {
+        showMessage("Could not copy activity details. Please try again.", "error");
+      });
+      shareDropdown.classList.add("hidden");
+    });
+
     activitiesList.appendChild(activityCard);
+  }
+
+  // Build share text for an activity
+  function buildShareText(name, details) {
+    const schedule = formatSchedule(details);
+    return `Check out "${name}" at Mergington High School!\n${details.description}\nSchedule: ${schedule}\n${window.location.href}`;
   }
 
   // Event listeners for search and filter
@@ -860,6 +941,13 @@ document.addEventListener("DOMContentLoaded", () => {
     setDayFilter,
     setTimeRangeFilter,
   };
+
+  // Close any open share dropdowns when clicking outside all cards
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".share-container")) {
+      document.querySelectorAll(".share-dropdown").forEach((d) => d.classList.add("hidden"));
+    }
+  });
 
   // Initialize app
   checkAuthentication();
